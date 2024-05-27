@@ -97,7 +97,7 @@ void ImGui_ImplGDI_RenderDrawData(ImDrawData* draw_data)
 
     // Get the handle of the current window.
     ImGuiIO& io = ImGui::GetIO();
-    HWND hWnd = (HWND)io.ImeWindowHandle;
+    HWND hWnd = (HWND)ImGui::GetMainViewport()->PlatformHandleRaw;
 
     HDC hDC = GetDC(hWnd);
 

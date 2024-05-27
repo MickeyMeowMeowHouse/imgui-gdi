@@ -24,6 +24,15 @@
     <ClInclude Include="..\imgui_impl_gdi.h">
       <Filter>sources</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\imstb_rectpack.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\imstb_textedit.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\imstb_truetype.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\imgui.cpp">
@@ -45,6 +54,9 @@
       <Filter>sources</Filter>
     </ClCompile>
     <ClCompile Include="..\..\imgui_widgets.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\imgui_tables.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
   </ItemGroup>
