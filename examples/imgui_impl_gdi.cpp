@@ -22,14 +22,16 @@
 
 #include <vector>
 
+#include "imgui_sw.hpp"
+
 static int old_fb_width = 0;
 static int old_fb_height = 0;
 
-//static HDC g_hDC = nullptr;
-//static HDC g_hBufferDC = nullptr;
-//static HBITMAP g_hBitmap = nullptr;
-//static uint32_t* g_PixelBuffer = nullptr;
-//static size_t g_PixelBufferSize = 0;
+static HDC g_hDC = nullptr;
+static HDC g_hBufferDC = nullptr;
+static HBITMAP g_hBitmap = nullptr;
+static uint32_t* g_PixelBuffer = nullptr;
+static size_t g_PixelBufferSize = 0;
 static HBRUSH g_BackgroundColorBrush = nullptr;
 
 bool ImGui_ImplGDI_Init()
@@ -46,7 +48,7 @@ bool ImGui_ImplGDI_Init()
 
 void ImGui_ImplGDI_Shutdown()
 {
-    
+    imgui_sw::unbind_imgui_painting();
 }
 
 void ImGui_ImplGDI_NewFrame()
@@ -58,6 +60,8 @@ void ImGui_ImplGDI_NewFrame()
 
     // Store our identifier
     io.Fonts->TexID = (ImTextureID)(intptr_t)0;
+
+    imgui_sw::bind_imgui_painting();
 }
 
 void ImGui_ImplGDI_SetBackgroundColor(ImVec4* BackgroundColor)
@@ -84,53 +88,219 @@ std::vector<GRADIENT_TRIANGLE> g_MeshBuffer;
 // but you can now call this directly from your main loop)
 void ImGui_ImplGDI_RenderDrawData(ImDrawData* draw_data)
 {
+    //// Avoid rendering when minimized, scale coordinates for retina displays.
+    //// (screen coordinates != framebuffer coordinates)
+    //int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
+    //int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
+    //if (fb_width == 0 || fb_height == 0)
+    //    return;
+
+    //// Will project scissor/clipping rectangles into framebuffer space
+    //ImVec2 clip_off = draw_data->DisplayPos;         // (0,0) unless using multi-viewports
+    //ImVec2 clip_scale = draw_data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
+
+    //// Get the handle of the current window.
+    //ImGuiIO& io = ImGui::GetIO();
+    //HWND hWnd = (HWND)ImGui::GetMainViewport()->PlatformHandleRaw;
+
+    //HDC hDC = GetDC(hWnd);
+
+    //HDC hBufferDC = CreateCompatibleDC(hDC);
+
+    //HBITMAP hBufferBitmap = CreateCompatibleBitmap(
+    //    hDC,
+    //    draw_data->DisplaySize.x,
+    //    draw_data->DisplaySize.y);
+
+    ////unsigned char* pixels;
+    ////int width, height;
+    ////io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    ////// Load as RGBA 32-bits (75% of the memory is wasted, but default font is so small) because it is more likely to be compatible with user's existing shaders. If your ImTextureId represent a higher-level concept than just a GL texture id, consider calling GetTexDataAsAlpha8() instead to save on GPU memory.
+
+    ////BITMAPINFO FontBitmapInfo;
+
+    ////FontBitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    ////FontBitmapInfo.bmiHeader.biWidth = width;
+    ////FontBitmapInfo.bmiHeader.biHeight = height;
+    ////FontBitmapInfo.bmiHeader.biPlanes = 1;
+    ////FontBitmapInfo.bmiHeader.biBitCount = 32;
+    ////FontBitmapInfo.bmiHeader.biCompression = BI_RGB;
+
+    ////HBITMAP hFontBitmap = CreateDIBSection(hBufferDC, &FontBitmapInfo, DIB_RGB_COLORS, (void**)&pixels, NULL, 0);
+
+    ////    //CreateBitmap(width, height, 1, 1, pixels);
+
+    //////HBRUSH hFontBrush = CreatePatternBrush(hFontBitmap);
+
+    ////SelectObject(hBufferDC, hFontBitmap);
+
+    //HBITMAP hBitmap = (HBITMAP)SelectObject(hBufferDC, hBufferBitmap);
+
+    //if (g_BackgroundColorBrush)
+    //{
+    //    RECT rc;
+    //    rc.left = 0;
+    //    rc.top = 0;
+    //    rc.right = fb_width;
+    //    rc.bottom = fb_height;
+
+    //    FillRect(hBufferDC, &rc, g_BackgroundColorBrush);
+    //}
+
+    //for (int n = 0; n < draw_data->CmdListsCount; ++n)
+    //{
+    //    const ImDrawList* cmd_list = draw_data->CmdLists[n];
+
+    //    g_VertexBuffer.clear();
+    //    g_MeshBuffer.clear();
+
+    //    for (int i = 0; i < cmd_list->VtxBuffer.Size; ++i)
+    //    {
+    //        TRIVERTEX Vertex;
+    //        Vertex.x = cmd_list->VtxBuffer[i].pos.x;
+    //        Vertex.y = cmd_list->VtxBuffer[i].pos.y;
+    //        Vertex.Red = ((uint8_t*)&cmd_list->VtxBuffer[i].col)[0] << 8;
+    //        Vertex.Green = ((uint8_t*)&cmd_list->VtxBuffer[i].col)[1] << 8;
+    //        Vertex.Blue = ((uint8_t*)&cmd_list->VtxBuffer[i].col)[2] << 8;
+    //        Vertex.Alpha = ((uint8_t*)&cmd_list->VtxBuffer[i].col)[3] << 8;
+
+    //        g_VertexBuffer.push_back(Vertex);
+    //    }
+
+    //    for (int i = 0; i < cmd_list->IdxBuffer.Size; i += 3)
+    //    {
+    //        GRADIENT_TRIANGLE Mesh;
+    //        Mesh.Vertex1 = cmd_list->IdxBuffer[i];
+    //        Mesh.Vertex2 = cmd_list->IdxBuffer[i + 1];
+    //        Mesh.Vertex3 = cmd_list->IdxBuffer[i + 2];
+
+    //        g_MeshBuffer.push_back(Mesh);
+    //    }
+
+    //    for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; ++cmd_i)
+    //    {
+    //        const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
+    //        if (pcmd->UserCallback)
+    //        {
+    //            // User callback, registered via ImDrawList::AddCallback()
+    //            pcmd->UserCallback(cmd_list, pcmd);
+    //        }
+    //        else
+    //        {
+    //            // Bind texture
+
+    //            // Draw
+    //            /*GdiGradientFill(
+    //                hBufferDC,
+    //                &g_VertexBuffer[pcmd->VtxOffset],
+    //                g_VertexBuffer.size() - pcmd->VtxOffset,
+    //                &g_MeshBuffer[pcmd->IdxOffset],
+    //                g_MeshBuffer.size() - pcmd->IdxOffset,
+    //                GRADIENT_FILL_TRIANGLE);*/
+
+    //            GdiGradientFill(
+    //                hBufferDC,
+    //                &g_VertexBuffer[0],
+    //                g_VertexBuffer.size(),
+    //                &g_MeshBuffer[0],
+    //                g_MeshBuffer.size(),
+    //                GRADIENT_FILL_TRIANGLE);
+
+    //            break;
+    //        }
+    //        
+    //    }
+    //}
+
+    //BitBlt(
+    //    hDC,
+    //    0,
+    //    0,
+    //    draw_data->DisplaySize.x,
+    //    draw_data->DisplaySize.y,
+    //    hBufferDC,
+    //    0,
+    //    0,
+    //    SRCCOPY);
+
+    ////DeleteObject(hFontBitmap);
+    ////DeleteObject(hFontBrush);
+
+    //DeleteObject(hBufferBitmap);
+    //DeleteObject(hBitmap);
+    //DeleteDC(hBufferDC);
+    //ReleaseDC(hWnd, hDC);
+
     // Avoid rendering when minimized, scale coordinates for retina displays.
     // (screen coordinates != framebuffer coordinates)
-    int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
-    int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
+    int fb_width = static_cast<int>(
+        draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
+    int fb_height = static_cast<int>(
+        draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
     if (fb_width == 0 || fb_height == 0)
-        return;
+    return;
 
-    // Will project scissor/clipping rectangles into framebuffer space
-    ImVec2 clip_off = draw_data->DisplayPos;         // (0,0) unless using multi-viewports
-    ImVec2 clip_scale = draw_data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
+    if (old_fb_width != fb_width || old_fb_height != fb_height)
+    {
+        // Get the handle of the current window.
+        ImGuiIO& io = ImGui::GetIO();
+        HWND hWnd = (HWND)ImGui::GetMainViewport()->PlatformHandleRaw;
 
-    // Get the handle of the current window.
-    ImGuiIO& io = ImGui::GetIO();
-    HWND hWnd = (HWND)ImGui::GetMainViewport()->PlatformHandleRaw;
+        if (g_hDC)
+        {
+            ReleaseDC(hWnd, g_hDC);
+            g_hDC = nullptr;
+        }
 
-    HDC hDC = GetDC(hWnd);
+        if (g_hBufferDC)
+        {
+            DeleteDC(g_hBufferDC);
+            g_hBufferDC = nullptr;
+        }
 
-    HDC hBufferDC = CreateCompatibleDC(hDC);
+        if (g_hBitmap)
+        {
+            DeleteObject(g_hBitmap);
+            g_hBitmap = nullptr;
+            g_PixelBuffer = nullptr;
+            g_PixelBufferSize = 0;
+        }
 
-    HBITMAP hBufferBitmap = CreateCompatibleBitmap(
-        hDC,
-        draw_data->DisplaySize.x,
-        draw_data->DisplaySize.y);
 
-    //unsigned char* pixels;
-    //int width, height;
-    //io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-    //// Load as RGBA 32-bits (75% of the memory is wasted, but default font is so small) because it is more likely to be compatible with user's existing shaders. If your ImTextureId represent a higher-level concept than just a GL texture id, consider calling GetTexDataAsAlpha8() instead to save on GPU memory.
+        g_hDC = GetDC(hWnd);
+        if (!g_hDC)
+            return;
 
-    //BITMAPINFO FontBitmapInfo;
+        g_hBufferDC = CreateCompatibleDC(g_hDC);
+        if (!g_hBufferDC)
+            return;
 
-    //FontBitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    //FontBitmapInfo.bmiHeader.biWidth = width;
-    //FontBitmapInfo.bmiHeader.biHeight = height;
-    //FontBitmapInfo.bmiHeader.biPlanes = 1;
-    //FontBitmapInfo.bmiHeader.biBitCount = 32;
-    //FontBitmapInfo.bmiHeader.biCompression = BI_RGB;
+        BITMAPINFO BitmapInfo;
+        BitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        BitmapInfo.bmiHeader.biWidth = fb_width;
+        BitmapInfo.bmiHeader.biHeight = -fb_height;
+        BitmapInfo.bmiHeader.biPlanes = 1;
+        BitmapInfo.bmiHeader.biBitCount = 32;
+        BitmapInfo.bmiHeader.biCompression = BI_RGB;
 
-    //HBITMAP hFontBitmap = CreateDIBSection(hBufferDC, &FontBitmapInfo, DIB_RGB_COLORS, (void**)&pixels, NULL, 0);
+        g_hBitmap = CreateDIBSection(
+            g_hBufferDC,
+            &BitmapInfo,
+            DIB_RGB_COLORS,
+            (void**)&g_PixelBuffer,
+            NULL,
+            0);
+        if (!g_hBitmap)
+            return;
 
-    //    //CreateBitmap(width, height, 1, 1, pixels);
+        g_PixelBufferSize = fb_width * fb_height * sizeof(uint32_t);
+    }
 
-    ////HBRUSH hFontBrush = CreatePatternBrush(hFontBitmap);
+    old_fb_width = fb_width;
+    old_fb_height = fb_height;
 
-    //SelectObject(hBufferDC, hFontBitmap);
-
-    HBITMAP hBitmap = (HBITMAP)SelectObject(hBufferDC, hBufferBitmap);
+    HBITMAP hOldBitmap = reinterpret_cast<HBITMAP>(
+        SelectObject(g_hBufferDC, g_hBitmap));
 
     if (g_BackgroundColorBrush)
     {
@@ -140,90 +310,25 @@ void ImGui_ImplGDI_RenderDrawData(ImDrawData* draw_data)
         rc.right = fb_width;
         rc.bottom = fb_height;
 
-        FillRect(hBufferDC, &rc, g_BackgroundColorBrush);
+        FillRect(g_hBufferDC, &rc, g_BackgroundColorBrush);
     }
-
-    for (int n = 0; n < draw_data->CmdListsCount; ++n)
+    else
     {
-        const ImDrawList* cmd_list = draw_data->CmdLists[n];
-
-        g_VertexBuffer.clear();
-        g_MeshBuffer.clear();
-
-        for (int i = 0; i < cmd_list->VtxBuffer.Size; ++i)
-        {
-            TRIVERTEX Vertex;
-            Vertex.x = cmd_list->VtxBuffer[i].pos.x;
-            Vertex.y = cmd_list->VtxBuffer[i].pos.y;
-            Vertex.Red = ((uint8_t*)&cmd_list->VtxBuffer[i].col)[0] << 8;
-            Vertex.Green = ((uint8_t*)&cmd_list->VtxBuffer[i].col)[1] << 8;
-            Vertex.Blue = ((uint8_t*)&cmd_list->VtxBuffer[i].col)[2] << 8;
-            Vertex.Alpha = ((uint8_t*)&cmd_list->VtxBuffer[i].col)[3] << 8;
-
-            g_VertexBuffer.push_back(Vertex);
-        }
-
-        for (int i = 0; i < cmd_list->IdxBuffer.Size; i += 3)
-        {
-            GRADIENT_TRIANGLE Mesh;
-            Mesh.Vertex1 = cmd_list->IdxBuffer[i];
-            Mesh.Vertex2 = cmd_list->IdxBuffer[i + 1];
-            Mesh.Vertex3 = cmd_list->IdxBuffer[i + 2];
-
-            g_MeshBuffer.push_back(Mesh);
-        }
-
-        for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; ++cmd_i)
-        {
-            const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
-            if (pcmd->UserCallback)
-            {
-                // User callback, registered via ImDrawList::AddCallback()
-                pcmd->UserCallback(cmd_list, pcmd);
-            }
-            else
-            {
-                // Bind texture
-
-                // Draw
-                /*GdiGradientFill(
-                    hBufferDC,
-                    &g_VertexBuffer[pcmd->VtxOffset],
-                    g_VertexBuffer.size() - pcmd->VtxOffset,
-                    &g_MeshBuffer[pcmd->IdxOffset],
-                    g_MeshBuffer.size() - pcmd->IdxOffset,
-                    GRADIENT_FILL_TRIANGLE);*/
-
-                GdiGradientFill(
-                    hBufferDC,
-                    &g_VertexBuffer[0],
-                    g_VertexBuffer.size(),
-                    &g_MeshBuffer[0],
-                    g_MeshBuffer.size(),
-                    GRADIENT_FILL_TRIANGLE);
-
-                break;
-            }
-            
-        }
+        memset(g_PixelBuffer, 0, g_PixelBufferSize);
     }
+
+    imgui_sw::paint_imgui(g_PixelBuffer, fb_width, fb_height);
 
     BitBlt(
-        hDC,
+        g_hDC,
         0,
         0,
-        draw_data->DisplaySize.x,
-        draw_data->DisplaySize.y,
-        hBufferDC,
+        fb_width,
+        fb_height,
+        g_hBufferDC,
         0,
         0,
         SRCCOPY);
 
-    //DeleteObject(hFontBitmap);
-    //DeleteObject(hFontBrush);
-
-    DeleteObject(hBufferBitmap);
-    DeleteObject(hBitmap);
-    DeleteDC(hBufferDC);
-    ReleaseDC(hWnd, hDC);
+    SelectObject(g_hBufferDC, hOldBitmap);
 }
